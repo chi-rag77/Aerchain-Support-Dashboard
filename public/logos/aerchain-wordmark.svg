@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 88" fill="none">
+  <!--
+    Aerchain wordmark: "AERCH" + orange Ai glyph + "N"
+    Dark colour: #1A1A1A  Orange: #E8431C
+    Font approximation: geometric bold sans (Futura / Century Gothic stack)
+  -->
+
+  <!-- ── "AERCH" ─────────────────────────────────────────────────── -->
+  <text
+    x="0" y="70"
+    font-family="'Futura','Century Gothic','Trebuchet MS','Arial Black',sans-serif"
+    font-weight="800"
+    font-size="74"
+    fill="#1A1A1A"
+    letter-spacing="-1"
+  >AERCH</text>
+
+  <!-- ── Orange stylised "Ai" ──────────────────────────────────────
+       The "A" is an open rounded-stroke A (left side curves from
+       bottom-left, arcs over apex, right side comes down and stops
+       open, leaving a gap at bottom-right).  A horizontal crossbar
+       sits ~45% up.  The "i" dot is a circle to the right.
+  ──────────────────────────────────────────────────────────────── -->
+
+  <!-- A stroke: open rounded form, stroke-based, thick rounded caps -->
+  <path
+    d="M 340 74
+       C 335 74  328 70  326 62
+       L 315 22
+       C 312 12  318  4  328  4
+       C 338  4  345 12  348 22
+       L 366 64
+       C 369 72  375 76  383 74"
+    stroke="#E8431C"
+    stroke-width="11"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- A crossbar -->
+  <line
+    x1="320" y1="46"
+    x2="375" y2="46"
+    stroke="#E8431C"
+    stroke-width="11"
+    stroke-linecap="round"
+  />
+  <!-- i dot -->
+  <circle cx="400" cy="14" r="8" fill="#E8431C"/>
+
+  <!-- ── "N" ───────────────────────────────────────────────────────── -->
+  <text
+    x="410" y="70"
+    font-family="'Futura','Century Gothic','Trebuchet MS','Arial Black',sans-serif"
+    font-weight="800"
+    font-size="74"
+    fill="#1A1A1A"
+    letter-spacing="-1"
+  >N</text>
+</svg>
