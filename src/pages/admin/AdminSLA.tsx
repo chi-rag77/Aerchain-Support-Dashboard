@@ -16,6 +16,11 @@ import {
 import { PRIORITY_META } from "@/lib/tickets";
 import { Priority } from "@/types/freshdesk";
 
+// Radix <Select.Item> forbids an empty-string value, but the shared-default
+// ruleset is keyed by "" (DEFAULT_COMPANY). Use a sentinel in the dropdown and
+// translate it back to "" for state/queries.
+const DEFAULT_OPTION = "__default__";
+
 // Mon-first ordering; value = JS getDay() (0=Sun … 6=Sat).
 const WEEKDAYS: { value: number; label: string }[] = [
   { value: 1, label: "Mon" }, { value: 2, label: "Tue" }, { value: 3, label: "Wed" },
@@ -148,12 +153,15 @@ const AdminSLA = () => {
         {/* Customer selector — Default (all customers) vs a per-customer override */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
           <Label className="text-[12px] font-semibold text-muted-foreground">Customer</Label>
-          <Select value={company} onValueChange={setCompany}>
+          <Select
+            value={company === DEFAULT_COMPANY ? DEFAULT_OPTION : company}
+            onValueChange={(v) => setCompany(v === DEFAULT_OPTION ? DEFAULT_COMPANY : v)}
+          >
             <SelectTrigger className="h-9 w-[240px] text-[13px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={DEFAULT_COMPANY}>Default — all customers</SelectItem>
+              <SelectItem value={DEFAULT_OPTION}>Default — all customers</SelectItem>
               {companies.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
