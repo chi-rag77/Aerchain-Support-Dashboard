@@ -1,6 +1,7 @@
 import { Ticket, Priority, Status } from "@/types/freshdesk";
 import { COMPANY_NAME } from "@/config";
-import { differenceInMinutes, parseISO, addHours } from "date-fns";
+import { parseISO } from "date-fns";
+import { businessMinutesBetween, addBusinessHours, formatBusinessDuration } from "@/lib/businessHours";
 
 /* ----------------------------------------------------------------------------
  * Static maps
@@ -40,13 +41,10 @@ export const statusLabel = (s: number) => STATUS_META[s]?.label ?? "Unknown";
  * Severity 3 (Medium  / P2) — Full resolution: 64 business hours
  * Severity 3 (Low     / P1) — Full resolution: 15 business days (120 biz hrs)
  *
- * All levels: Acknowledgment within 15 min, Analysis within 60 min.
- * Business hours = 9 h/day (09:00–18:00). Values below are calendar hours
- * approximated from business hours (÷ 9 h × 24 h).
+ * SLA time accrues only during the support window on working days
+ * (default 10:30–18:30, Mon–Fri — see @/lib/businessHours). Weekends and
+ * off-hours are skipped. Targets below are in business hours.
  * ------------------------------------------------------------------------- */
-
-// Calendar-hour equivalents of the business-hour SLA targets
-const BIZ_TO_CAL = (bizHours: number) => Math.round((bizHours / 9) * 24);
 
 // NOTE: these are mutable so admin-configured SLA rules (loaded from the
 // `sla_rules` table at runtime) can override the defaults in place. Consumers
@@ -56,11 +54,21 @@ const BIZ_TO_CAL = (bizHours: number) => Math.round((bizHours / 9) * 24);
 // may additionally have an OVERRIDE ruleset (see SLA_OVERRIDES below); the
 // dashboard is multi-customer and "custom SLA for NSE, standard for everyone
 // else" is expressed as a default set + an NSE override.
+// Resolution targets, now expressed directly in BUSINESS hours (support window,
+// working days only — see @/lib/businessHours). No calendar conversion.
 export const SLA_RESOLUTION_HOURS: Record<Priority, number> = {
-  4: BIZ_TO_CAL(8),    // Severity 1 — Critical: 8 biz hrs ≈ 21 cal hrs
-  3: BIZ_TO_CAL(32),   // Severity 2 — High:     32 biz hrs ≈ 85 cal hrs
-  2: BIZ_TO_CAL(64),   // Severity 3 — Medium:   64 biz hrs ≈ 171 cal hrs
-  1: BIZ_TO_CAL(120),  // Severity 3 — Low:      15 biz days ≈ 320 cal hrs
+  4: 8,    // Critical: 8 business hours
+  3: 32,   // High:     32 business hours
+  2: 64,   // Medium:   64 business hours
+  1: 120,  // Low:      15 business days (120 business hours)
+};
+
+// Response (first-reply) targets, in BUSINESS hours, per priority.
+export const SLA_RESPONSE_HOURS: Record<Priority, number> = {
+  4: 1,    // Critical
+  3: 4,    // High
+  2: 8,    // Medium
+  1: 24,   // Low
 };
 
 // Attention threshold: warn when <30% of SLA window remains
@@ -82,6 +90,8 @@ export interface SlaRule {
   priority: Priority;
   severity_label: string;
   resolution_hours: number;
+  /** First-response target, in business hours. */
+  response_hours?: number;
   resolution_label?: string | null;
   /** '' / undefined → the shared default ruleset; otherwise a per-customer override. */
   company_name?: string | null;
@@ -98,15 +108,23 @@ export const companyKey = (company?: string | null): string =>
  */
 interface CompanyOverride {
   resolution_hours: Partial<Record<Priority, number>>;
+  response_hours: Partial<Record<Priority, number>>;
   labels: Partial<Record<Priority, { severity: string; workaround: string; resolution: string }>>;
 }
 export const SLA_OVERRIDES: Record<string, CompanyOverride> = {};
 
-/** Resolution target (calendar hours) for a ticket's company + priority. */
+/** Resolution target (business hours) for a ticket's company + priority. */
 export const resolutionHoursFor = (company: string | null | undefined, p: Priority): number => {
   const ov = SLA_OVERRIDES[companyKey(company)];
   const hours = ov?.resolution_hours[p];
   return hours != null ? hours : SLA_RESOLUTION_HOURS[p];
+};
+
+/** Response target (business hours) for a ticket's company + priority. */
+export const responseHoursFor = (company: string | null | undefined, p: Priority): number => {
+  const ov = SLA_OVERRIDES[companyKey(company)];
+  const hours = ov?.response_hours[p];
+  return hours != null ? hours : SLA_RESPONSE_HOURS[p];
 };
 
 /** Severity/resolution labels for a ticket's company + priority. */
@@ -133,11 +151,13 @@ export const applySlaRules = (rules: SlaRule[]) => {
     if (!key) {
       // Default ruleset — mutate the shared maps in place.
       SLA_RESOLUTION_HOURS[p] = r.resolution_hours;
+      if (r.response_hours != null) SLA_RESPONSE_HOURS[p] = r.response_hours;
       SLA_LABELS[p] = label;
     } else {
       // Per-customer override.
-      const ov = (SLA_OVERRIDES[key] ??= { resolution_hours: {}, labels: {} });
+      const ov = (SLA_OVERRIDES[key] ??= { resolution_hours: {}, response_hours: {}, labels: {} });
       ov.resolution_hours[p] = r.resolution_hours;
+      if (r.response_hours != null) ov.response_hours[p] = r.response_hours;
       ov.labels[p] = label;
     }
   });
@@ -162,46 +182,36 @@ export const computeSLA = (t: Ticket): SLAInfo => {
   // is the best available proxy) against the resolution deadline — not a blanket
   // "met". This keeps the header verdict, the tickets table, and the drawer's
   // resolution milestone all in agreement.
+  // All SLA time is measured in BUSINESS minutes (support window, working days).
+  const resHours = resolutionHoursFor(t.company_name, t.priority);
+  const totalMinutes = Math.max(1, resHours * 60);
+
   if (SLA_DONE_STATUSES.includes(t.status)) {
     const created = parseISO(t.created_at);
-    const limit = addHours(created, resolutionHoursFor(t.company_name, t.priority));
     const resolvedAt = parseISO(t.updated_at);
-    const overdue = differenceInMinutes(resolvedAt, limit); // >0 => resolved late
+    const usedMinutes = businessMinutesBetween(created, resolvedAt);
+    const overdue = usedMinutes - totalMinutes; // >0 => resolved late (business time)
     if (overdue <= 0) {
       return { state: "met", label: "Met", remaining: "—", remainingMinutes: 0, percent: 100, tone: "text-emerald-600", dot: "bg-emerald-500" };
     }
-    const d = Math.floor(overdue / (60 * 24));
-    const h = Math.floor((overdue % (60 * 24)) / 60);
-    const m = overdue % 60;
-    const remaining = d > 0 ? `-${d}d ${h}h` : h > 0 ? `-${h}h ${m}m` : `-${m}m`;
-    return { state: "breached", label: "Breached", remaining, remainingMinutes: -overdue, percent: 0, tone: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" };
+    return { state: "breached", label: "Breached", remaining: formatBusinessDuration(-overdue), remainingMinutes: -overdue, percent: 0, tone: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" };
   }
 
-  // Waiting on Customer → SLA timer is OFF; the ball is in NSE's court.
+  // Waiting on Customer → SLA timer is OFF; the ball is in the customer's court.
   if (t.status === SLA_PAUSED_STATUS) {
     return { state: "paused", label: "Paused — Waiting on Customer", remaining: "Paused", remainingMinutes: Infinity, percent: 100, tone: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" };
   }
 
   const created = parseISO(t.created_at);
-  const resHours = resolutionHoursFor(t.company_name, t.priority);
-  const limit = addHours(created, resHours);
-  const totalMinutes = resHours * 60;
-  const remainingMinutes = differenceInMinutes(limit, new Date());
+  const usedMinutes = businessMinutesBetween(created, new Date());
+  const remainingMinutes = totalMinutes - usedMinutes;
   const percent = Math.max(0, Math.min(100, (remainingMinutes / totalMinutes) * 100));
 
   let state: SLAState = "on_track";
   if (remainingMinutes < 0) state = "breached";
   else if (percent < SLA_ATTENTION_PERCENT) state = "attention";
 
-  const abs = Math.abs(remainingMinutes);
-  const d = Math.floor(abs / (60 * 24));
-  const h = Math.floor((abs % (60 * 24)) / 60);
-  const m = abs % 60;
-  const sign = remainingMinutes < 0 ? "-" : "";
-  const remaining =
-    d > 0 ? `${sign}${d}d ${h}h` :
-    h > 0 ? `${sign}${h}h ${m}m` :
-    `${sign}${m}m`;
+  const remaining = formatBusinessDuration(remainingMinutes);
 
   const meta: Record<SLAState, { label: string; tone: string; dot: string }> = {
     on_track: { label: "On Track", tone: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },

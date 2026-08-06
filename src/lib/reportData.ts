@@ -3,7 +3,8 @@ import {
   computeSLA, resolutionHoursFor, SLA_LABELS,
   PRIORITY_META, STATUS_META, requesterDisplayName, ticketDept, ticketRef,
 } from "@/lib/tickets";
-import { differenceInHours, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { businessMinutesBetween } from "@/lib/businessHours";
 
 /* ----------------------------------------------------------------------------
  * Shared helpers
@@ -14,10 +15,10 @@ export const statusName = (s: number) => STATUS_META[s]?.label ?? `Status ${s}`;
 
 const isResolved = (t: Ticket) => t.status === 4 || t.status === 5;
 
-/** Resolution duration in hours (created → updated) for resolved tickets. */
+/** Resolution duration in BUSINESS hours (created → updated) for resolved tickets. */
 export const resolutionHours = (t: Ticket): number | null => {
   if (!isResolved(t)) return null;
-  return Math.max(0, differenceInHours(parseISO(t.updated_at), parseISO(t.created_at)));
+  return Math.max(0, businessMinutesBetween(parseISO(t.created_at), parseISO(t.updated_at)) / 60);
 };
 
 /**
