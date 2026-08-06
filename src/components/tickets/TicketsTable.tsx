@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsRight,
-  MoreHorizontal, Inbox, AlertTriangle,
+  MoreHorizontal, Inbox, AlertTriangle, Building2,
 } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays, parseISO } from "date-fns";
 import { Ticket } from "@/types/freshdesk";
@@ -17,7 +17,7 @@ import {
   ticketCategory, ticketDept,
 } from "@/lib/tickets";
 
-type SortKey = "id" | "priority" | "status" | "sla" | "updated" | "created" | "aging";
+type SortKey = "id" | "company" | "priority" | "status" | "sla" | "updated" | "created" | "aging";
 
 interface Props {
   tickets: Ticket[];
@@ -101,6 +101,7 @@ export const TicketsTable = ({
       let cmp = 0;
       switch (sortKey) {
         case "id":       cmp = a.id - b.id; break;
+        case "company":  cmp = (a.company_name ?? "").localeCompare(b.company_name ?? ""); break;
         case "priority": cmp = b.priority - a.priority; break;
         case "status":   cmp = a.status - b.status; break;
         case "sla":      cmp = computeSLA(a).remainingMinutes - computeSLA(b).remainingMinutes; break;
@@ -169,7 +170,8 @@ export const TicketsTable = ({
                 </TableHead>
               )}
               <Th k="id" label="Ticket" className="w-[96px]" />
-              <Th label="Subject" className="min-w-[300px]" />
+              <Th label="Subject" className="min-w-[280px]" />
+              <Th k="company" label="Company" className="w-[150px]" />
               <Th k="priority" label="Priority" className="w-[110px]" />
               <Th k="status" label="Status" className="w-[120px]" />
               <Th label="Requester" className="hidden lg:table-cell w-[170px]" />
@@ -184,7 +186,7 @@ export const TicketsTable = ({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="py-24 text-center">
+                <TableCell colSpan={13} className="py-24 text-center">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/60">
                       <Inbox className="h-6 w-6 opacity-40" />
@@ -206,6 +208,7 @@ export const TicketsTable = ({
                 const aging = agingBadge(days);
                 const requester = requesterDisplayName(t);
                 const assignee = t.responder_name ?? null;
+                const company = t.company_name?.trim() || "—";
                 const isBreached = sla.state === "breached";
                 const category = ticketCategory(t);
                 const meter = slaMeter(sla.state);
@@ -286,6 +289,14 @@ export const TicketsTable = ({
                           <span className="truncate">{ticketDept(t)}</span>
                         </div>
                       </div>
+                    </TableCell>
+
+                    {/* Company */}
+                    <TableCell className="py-3.5 px-3">
+                      <span className="inline-flex max-w-[140px] items-center gap-1.5 rounded-md bg-secondary/60 px-2 py-1 text-[11.5px] font-semibold text-foreground/75 ring-1 ring-border/40">
+                        <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                        <span className="truncate">{company}</span>
+                      </span>
                     </TableCell>
 
                     {/* Priority */}
