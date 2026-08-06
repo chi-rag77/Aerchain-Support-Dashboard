@@ -8,11 +8,12 @@ import {
   Lock, ArrowDownLeft, ArrowUpRight, AlertTriangle, Timer,
   CircleDot, CalendarClock,
 } from "lucide-react";
-import { format, differenceInMinutes, parseISO, addHours, addMinutes } from "date-fns";
+import { format, differenceInMinutes, parseISO } from "date-fns";
+import { addBusinessHours } from "@/lib/businessHours";
 import {
   requesterDisplayName, ticketDept, computeSLA,
-  SLA_LABELS, SLA_ACK_MINUTES,
-  SLA_RESOLUTION_HOURS, SLA_DONE_STATUSES, SLA_PAUSED_STATUS,
+  SLA_LABELS, resolutionHoursFor, responseHoursFor,
+  SLA_DONE_STATUSES, SLA_PAUSED_STATUS,
   PRIORITY_META, STATUS_META, initials,
 } from "@/lib/tickets";
 import { cn } from "@/lib/utils";
@@ -76,7 +77,8 @@ const buildMilestones = (ticket: Ticket, conversations: Conversation[]): Milesto
   const isDone = SLA_DONE_STATUSES.includes(ticket.status);
   const isPaused = ticket.status === SLA_PAUSED_STATUS;
   const slaLabel = SLA_LABELS[ticket.priority as Priority] ?? SLA_LABELS[1];
-  const resHours = SLA_RESOLUTION_HOURS[ticket.priority as Priority] ?? SLA_RESOLUTION_HOURS[1];
+  const resHours = resolutionHoursFor(ticket.company_name, ticket.priority as Priority);
+  const responseHours = responseHoursFor(ticket.company_name, ticket.priority as Priority);
 
   // Acknowledgment = first *public* agent reply to the requester. Private
   // (internal) notes are not an acknowledgment, so they must be excluded —
@@ -86,8 +88,8 @@ const buildMilestones = (ticket: Ticket, conversations: Conversation[]): Milesto
     .sort((a, b) => +parseISO(a.created_at) - +parseISO(b.created_at))[0] ?? null;
   const firstReplyAt = firstAgentReply ? parseISO(firstAgentReply.created_at) : null;
 
-  const ackDeadline = addMinutes(created, SLA_ACK_MINUTES);
-  const resDeadline = addHours(created, resHours);
+  const ackDeadline = addBusinessHours(created, responseHours);
+  const resDeadline = addBusinessHours(created, resHours);
 
   // Best available resolution timestamp: updated_at on a resolved/closed ticket.
   const resolvedAt = isDone ? parseISO(ticket.updated_at) : null;
@@ -127,9 +129,9 @@ const buildMilestones = (ticket: Ticket, conversations: Conversation[]): Milesto
   return [
     {
       id: "ack",
-      label: "Acknowledgment",
-      shortLabel: "ACK",
-      target: `${SLA_ACK_MINUTES} min`,
+      label: "Response",
+      shortLabel: "RESPONSE",
+      target: `${responseHours} business hr${responseHours === 1 ? "" : "s"}`,
       deadline: ackDeadline,
       actual: firstReplyAt,
       actualVerb: "First reply sent",

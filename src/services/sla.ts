@@ -8,14 +8,21 @@
 // ============================================================================
 
 import { supabase } from "./supabase";
-import { applySlaRules, SlaRule, SLA_RESOLUTION_HOURS, SLA_LABELS } from "@/lib/tickets";
+import { applySlaRules, SlaRule, SLA_RESOLUTION_HOURS, SLA_RESPONSE_HOURS, SLA_LABELS } from "@/lib/tickets";
+import {
+  BUSINESS_HOURS, setBusinessHours, minutesToHHMM, hhmmToMinutes, DEFAULT_BUSINESS_HOURS,
+} from "@/lib/businessHours";
 import { Priority } from "@/types/freshdesk";
 
 /** Sentinel used across the admin UI for the shared default ruleset. */
 export const DEFAULT_COMPANY = "";
 
+/** app_settings key holding the JSON business-hours config. */
+const BUSINESS_HOURS_KEY = "business_hours";
+
 export interface SlaRuleRow extends SlaRule {
   company_name: string;
+  response_hours: number;
   ack_minutes: number;
   analysis_minutes: number;
   updated_at?: string;
@@ -29,14 +36,66 @@ export const defaultRules = (company: string = DEFAULT_COMPANY): SlaRuleRow[] =>
     priority: p,
     severity_label: SLA_LABELS[p].severity,
     resolution_hours: SLA_RESOLUTION_HOURS[p],
+    response_hours: SLA_RESPONSE_HOURS[p],
     resolution_label: SLA_LABELS[p].resolution,
     ack_minutes: 15,
     analysis_minutes: 60,
   }));
 
+/* ── Business hours (global support window) ────────────────────────────────── */
+
+export interface BusinessHoursForm {
+  start: string;   // "10:30"
+  end: string;     // "18:30"
+  days: number[];  // JS getDay() values, 0=Sun … 6=Sat
+}
+
+export const businessHoursToForm = (): BusinessHoursForm => ({
+  start: minutesToHHMM(BUSINESS_HOURS.startMin),
+  end: minutesToHHMM(BUSINESS_HOURS.endMin),
+  days: [...BUSINESS_HOURS.days],
+});
+
+/** Load the saved business-hours config from app_settings and apply it. */
+export const loadBusinessHours = async (): Promise<BusinessHoursForm> => {
+  if (!supabase) return businessHoursToForm();
+  const { data } = await supabase
+    .from("app_settings").select("value").eq("key", BUSINESS_HOURS_KEY).maybeSingle();
+  if (data?.value) {
+    try {
+      const cfg = JSON.parse(data.value);
+      setBusinessHours({
+        startMin: typeof cfg.startMin === "number" ? cfg.startMin : hhmmToMinutes(cfg.start ?? "10:30"),
+        endMin: typeof cfg.endMin === "number" ? cfg.endMin : hhmmToMinutes(cfg.end ?? "18:30"),
+        days: Array.isArray(cfg.days) ? cfg.days : DEFAULT_BUSINESS_HOURS.days,
+        tzOffsetMin: typeof cfg.tzOffsetMin === "number" ? cfg.tzOffsetMin : DEFAULT_BUSINESS_HOURS.tzOffsetMin,
+      });
+    } catch { /* keep defaults on parse error */ }
+  }
+  return businessHoursToForm();
+};
+
+/** Admin: persist the business-hours config and apply it locally. */
+export const saveBusinessHours = async (form: BusinessHoursForm): Promise<{ ok: boolean; error?: string }> => {
+  const startMin = hhmmToMinutes(form.start);
+  const endMin = hhmmToMinutes(form.end);
+  if (endMin <= startMin) return { ok: false, error: "End time must be after start time." };
+  if (!form.days.length) return { ok: false, error: "Select at least one working day." };
+  setBusinessHours({ startMin, endMin, days: form.days });
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const payload = JSON.stringify({ startMin, endMin, days: form.days, tzOffsetMin: BUSINESS_HOURS.tzOffsetMin });
+  const { error } = await supabase
+    .from("app_settings")
+    .upsert({ key: BUSINESS_HOURS_KEY, value: payload, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+};
+
 /** Fetch ALL rules (default + every override) from Supabase and apply them. */
 export const loadSlaRules = async (): Promise<SlaRuleRow[]> => {
   if (!supabase) return defaultRules();
+  // Load the business-hours window first so SLA math is correct app-wide.
+  await loadBusinessHours();
   const { data, error } = await supabase
     .from("sla_rules")
     .select("*")
@@ -87,6 +146,7 @@ export const saveSlaRule = async (rule: SlaRuleRow): Promise<{ ok: boolean; erro
         priority: rule.priority,
         severity_label: rule.severity_label,
         resolution_hours: rule.resolution_hours,
+        response_hours: rule.response_hours,
         ack_minutes: rule.ack_minutes,
         analysis_minutes: rule.analysis_minutes,
         resolution_label: rule.resolution_label,
