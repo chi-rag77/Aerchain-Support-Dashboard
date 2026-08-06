@@ -45,12 +45,9 @@ export const Header = ({
   const nav = [
     { label: "Home", path: "/", icon: Home },
     { label: "Tickets", path: "/tickets", icon: TicketIcon },
-    // Reports & Admin are restricted to admins only.
+    // Reports is admin-only; Admin has its own button beside the profile.
     ...(isAdmin
-      ? [
-          { label: "Reports", path: "/reports", icon: FileBarChart },
-          { label: "Admin", path: "/admin/users", icon: ShieldCheck },
-        ]
+      ? [{ label: "Reports", path: "/reports", icon: FileBarChart }]
       : []),
   ];
 
@@ -153,6 +150,24 @@ export const Header = ({
           >
             {theme === "dark" ? <Sun className="h-[17px] w-[17px]" /> : <Moon className="h-[17px] w-[17px]" />}
           </Button>
+
+          {/* Admin — quick access beside the profile (admins only) */}
+          {isAdmin && (
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => navigate("/admin/users")}
+              title="Admin"
+              className={cn(
+                "ml-0.5 h-9 gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-[#6B4EFF] text-white hover:bg-[#5B3EEF] hover:text-white shadow-[0_2px_12px_rgba(107,78,255,0.35)]"
+                  : "text-[#6B6B8A] hover:bg-[#F0F0FA] hover:text-[#1A1A2E] dark:text-muted-foreground dark:hover:bg-secondary",
+              )}
+            >
+              <ShieldCheck className="h-[16px] w-[16px]" />
+              <span className="hidden sm:inline">Admin</span>
+            </Button>
+          )}
 
           <span className="mx-1.5 h-5 w-px bg-[#E2E2EE] dark:bg-border" />
 
