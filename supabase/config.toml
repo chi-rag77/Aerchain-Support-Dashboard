@@ -1,0 +1,27 @@
+# Supabase project config (used by the Supabase CLI).
+# Set your project ref with:  supabase link --project-ref <PROJECT_REF>
+
+project_id = "hagfwtqqsekoweatlzlr"
+
+[functions.sync-freshdesk]
+# verify_jwt = false lets the dashboard "Refresh" button invoke the function
+# with the public anon key (no end-user auth required for this internal tool).
+# Freshdesk credentials live in Edge Function secrets, never in the client.
+verify_jwt = false
+
+[functions.admin-users]
+# verify_jwt = false is REQUIRED here. This function verifies the caller's JWT
+# and admin rights IN CODE (see index.ts). With the platform gateway's JWT
+# check left on (the default), the CORS preflight OPTIONS request — which
+# carries no Authorization header — is rejected with a 401 that has no CORS
+# headers, so the browser reports a CORS error and the real request never
+# reaches the handler. Turning the gateway check off lets the request through;
+# the function still rejects missing/invalid tokens and non-admins itself.
+verify_jwt = false
+
+[functions.slack-notify]
+# verify_jwt = false so pg_cron can invoke it with the anon key (not a user
+# JWT) and the Admin "Test" button's preflight isn't blocked. The function
+# uses the service role internally and only reads admin-set config, so no
+# end-user auth is required.
+verify_jwt = false

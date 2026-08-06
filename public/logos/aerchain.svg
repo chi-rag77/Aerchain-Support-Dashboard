@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 120" fill="none">
+  <!--
+    Aerchain logo: a thick-stroke rounded open "A" (the stroke starts at
+    bottom-left, rises to a rounded apex, comes back down the right side
+    and stops — leaving the bottom-right open), with a detached dot
+    at upper-right. Colour: #E8341C (Aerchain orange-red).
+  -->
+  <path
+    d="M 22 96
+       C 14 96  10 88  16 76
+       L 50 20
+       C 56  8  66  4  76  8
+       C 86 12  90 24  86 36
+       L 72 88
+       C 70 94  64 100 56 98"
+    stroke="#E8341C"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- Cross-stroke -->
+  <line
+    x1="36" y1="62"
+    x2="78" y2="62"
+    stroke="#E8341C"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <!-- Dot (upper-right, detached) -->
+  <circle cx="114" cy="18" r="10" fill="#E8341C"/>
+</svg>
