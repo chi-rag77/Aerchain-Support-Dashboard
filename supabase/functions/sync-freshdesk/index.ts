@@ -21,7 +21,7 @@
 //                                                     = sync ALL companies)
 //                    FRESHDESK_EXCLUDE_COMPANY_NAME  (cf_company values to drop,
 //                                                     comma-separated; default "NSE")
-//                    SYNC_CREATED_AFTER              (ISO date, default 2026-07-27T00:00:00Z)
+//                    SYNC_CREATED_AFTER              (ISO date, default 2026-08-01T00:00:00Z)
 //                    SYNC_CONVERSATIONS              ("false" to skip conversations)
 // ============================================================================
 
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     // Ordered created_at desc so we can stop as soon as we cross the cutoff.
     // We do NOT filter by native company_id (it's null for NSE) — scoping by
     // cf_company happens client-side below. include=stats gives due dates.
-    const createdAfter = Deno.env.get("SYNC_CREATED_AFTER") ?? "2026-07-27T00:00:00Z";
+    const createdAfter = Deno.env.get("SYNC_CREATED_AFTER") ?? "2026-08-01T00:00:00Z";
     const parsedCutoff = Date.parse(createdAfter);
     const createdAfterMs = Number.isNaN(parsedCutoff) ? 0 : parsedCutoff;
     const baseFilter = `?include=requester,company,stats&per_page=100&order_by=created_at&order_type=desc`;

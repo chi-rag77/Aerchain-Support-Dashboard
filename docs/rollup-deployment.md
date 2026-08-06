@@ -44,7 +44,7 @@ Set the secrets (note: **exclude** NSE, do not set an include filter):
 supabase secrets set FRESHDESK_DOMAIN=aerchain.freshdesk.com
 supabase secrets set FRESHDESK_API_KEY=<freshdesk_api_key>
 supabase secrets set FRESHDESK_EXCLUDE_COMPANY_NAME=NSE       # cf_company values to drop
-supabase secrets set SYNC_CREATED_AFTER=2026-07-27T00:00:00Z  # optional
+supabase secrets set SYNC_CREATED_AFTER=2026-08-01T00:00:00Z  # optional
 ```
 
 ## 3. Schedule the sync
