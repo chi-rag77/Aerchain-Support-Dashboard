@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Ticket as TicketIcon, FileBarChart, Bell, Moon, Sun,
-  RefreshCw, ShieldCheck, LogOut, Users, SlidersHorizontal, ScrollText,
+  RefreshCw, ShieldCheck, LogOut, Users, Users2, SlidersHorizontal, ScrollText,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -45,9 +45,12 @@ export const Header = ({
   const nav = [
     { label: "Home", path: "/", icon: Home },
     { label: "Tickets", path: "/tickets", icon: TicketIcon },
-    // Reports is admin-only; Admin has its own button beside the profile.
+    // Teams & Reports are admin-only; Admin has its own button beside the profile.
     ...(isAdmin
-      ? [{ label: "Reports", path: "/reports", icon: FileBarChart }]
+      ? [
+          { label: "Teams", path: "/teams", icon: Users2 },
+          { label: "Reports", path: "/reports", icon: FileBarChart },
+        ]
       : []),
   ];
 
