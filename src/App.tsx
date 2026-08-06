@@ -13,6 +13,7 @@ import Tickets from "./pages/Tickets";
 import NotFound from "./pages/NotFound";
 
 const Reports = lazy(() => import("./pages/Reports"));
+const AdminAgents = lazy(() => import("./pages/admin/AdminAgents"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminSLA = lazy(() => import("./pages/admin/AdminSLA"));
 const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
@@ -49,6 +50,10 @@ const App = () => (
             />
 
             {/* Admin-only */}
+            <Route
+              path="/admin/agents"
+              element={<AdminRoute><Suspense fallback={<Loading label="Loading…" />}><AdminAgents /></Suspense></AdminRoute>}
+            />
             <Route
               path="/admin/users"
               element={<AdminRoute><Suspense fallback={<Loading label="Loading…" />}><AdminUsers /></Suspense></AdminRoute>}
